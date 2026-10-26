@@ -41,8 +41,10 @@ jobs:
       - name: Build the runtime
         run: |
           export PATH="$PWD/deps/$LLVM/bin:$PATH"
+          # CMake needs Windows paths: Git Bash leaves /d/a/... unconverted in a ;-separated list.
+          DEPS="$(pwd -W)/deps"
           cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DEGG_RUNTIME_ONLY=ON \
-            "-DCMAKE_PREFIX_PATH=$PWD/deps/$SDL/x86_64-w64-mingw32;$PWD/deps/$FFMPEG"
+            "-DCMAKE_PREFIX_PATH=$DEPS/$SDL/x86_64-w64-mingw32;$DEPS/$FFMPEG"
           cmake --build build
 
       - name: Package
