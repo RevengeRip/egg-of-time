@@ -7,10 +7,26 @@ into C and compiled into a native program, with a small runtime standing in for 
 version of the game running at native speed, with widescreen, high resolutions, high framerates, gamepad support
 and mods.
 
+> [!IMPORTANT]
 > **You need your own copy of the game.** Egg of Time contains no ROM, no game code and no game assets. The game
 > is built on your computer from your own ROM dump of *Chrono Trigger* (USA). See [Your ROM](#your-rom).
 
+## Disclaimers
+
+- This is an unofficial fan project, not affiliated with or endorsed by Square Enix or Nintendo.
+  *Chrono Trigger* is a trademark of Square Enix.
+- **No copyrighted game data is distributed.** You need your own copy of the game. Do not share the files made
+  from it: `rom/`, `extract/`, `game/` and the generated code in `build/`.
+- **AI assistance:** this project was developed with Claude (Anthropic) through Claude Code. Claude did the
+  reverse-engineering analysis and wrote the recompiler, the runtime and the documentation, under the direction
+  of the repository owner.
+
 ## Playing on Windows
+
+> [!WARNING]
+> **Windows may block the first launch** with a blue or red "Windows protected your PC" screen. Egg of Time is
+> not signed with a paid certificate, so Windows SmartScreen doesn't recognise it yet. Click **More info**, then
+> **Run anyway**. Windows remembers your choice for this version.
 
 1. Download the latest `EggOfTime-<version>-windows-x64.zip` from the
    [Releases page](https://github.com/power-pudu/egg-of-time/releases).
@@ -19,8 +35,9 @@ and mods.
 4. Wait for the first-start build. Egg of Time translates the game from your ROM into native code. This
    takes a few minutes and shows a progress bar. Later starts take about two seconds.
 
-Nothing is installed and nothing is downloaded: the tools the build uses (dsd, Python, clang) come in the zip's
-`kit\` folder. If the build fails, `game\build.log` has the details.
+> [!NOTE]
+> Nothing is installed and nothing is downloaded: the tools the build uses (dsd, Python, clang) come in the zip's
+> `kit\` folder. If the build fails, `game\build.log` has the details.
 
 **Where your files are.** Everything stays in the Egg of Time folder:
 
@@ -32,13 +49,16 @@ Nothing is installed and nothing is downloaded: the tools the build uses (dsd, P
 | Settings | `eggoftime.ini` |
 | Mods | `mods\cutscenes\`, `mods\music\` |
 
-**Updating.** Unzip the new version over the old folder. Your ROM, saves and settings are kept. If the new version
-changed the recompiler, the game is built again on its first start.
+> [!TIP]
+> **Updating:** unzip the new version over the old folder. Your ROM, saves and settings are kept. If the new
+> version changed the recompiler, the game is built again on its first start.
 
 ## Playing on Linux and macOS
 
-There is no ready-made download yet: build it from source (see [Building from source](#building-from-source)).
-Linux (gcc, Ubuntu 24.04) is tested. On macOS the runtime compiles, but a full game build has not been tested yet.
+> [!NOTE]
+> There is no ready-made download yet: build it from source (see [Building from source](#building-from-source)).
+> Linux (gcc, Ubuntu 24.04) is tested. On macOS the runtime compiles, but a full game build has not been tested
+> yet.
 
 ## Your ROM
 
@@ -47,8 +67,9 @@ Egg of Time runs one version of the game only:
 - *Chrono Trigger*, Nintendo DS, **USA** release (game code `YQUE`, English/French)
 - SHA-1 `11f9e8204e484eab42181b210c9f214584be75bf`
 
-Dump it from your own cartridge. The Windows release refuses any other file (other regions, modified ROMs). A
-source build only warns, but the game will not work with them.
+> [!CAUTION]
+> Dump it from your own cartridge. The Windows release refuses any other file (other regions, modified ROMs). A
+> source build only warns, but the game will not work with them.
 
 ## Features
 
@@ -121,7 +142,8 @@ Gamepads work out of the box. The DS face buttons map by position: A is the righ
 - Windows (clang) and Linux (gcc) are tested. macOS compiles but is untested.
 - Not implemented: Wi-Fi, the microphone, and the DS 3D engine (no 3D has been seen in the tested parts).
 
-Found a bug? Open an issue. A save state (`rom\CT.state`) taken just before the bug helps a lot.
+> [!TIP]
+> Found a bug? Open an issue. A save state (`rom\CT.state`) taken just before the bug helps a lot.
 
 ## How it works
 
@@ -168,7 +190,8 @@ For development, or to play on Linux and macOS.
 ### Steps
 
 1. **Add your ROM** as `rom/CT.nds` (see [Your ROM](#your-rom)).
-2. **Extract it.** This creates `extract/`, which the recompiler reads. It stays on your machine; never commit it.
+2. **Extract it.** This creates `extract/`, which the recompiler reads. It holds game data: it stays on your
+   machine, **never commit it**.
 
    ```sh
    dsd rom extract --rom rom/CT.nds --output-path extract
@@ -209,13 +232,3 @@ Pushing a `v*` tag runs `.github/workflows/release.yml`. It builds the runtime, 
 - Hardware details from GBATEK.
 - The LCD filter is based on the [lcd3x shader](https://github.com/libretro/slang-shaders/blob/master/handheld/shaders/lcd3x.slang)
   by Gigaherz (public domain).
-
-## Disclaimers
-
-- This is an unofficial fan project, not affiliated with or endorsed by Square Enix or Nintendo.
-  *Chrono Trigger* is a trademark of Square Enix.
-- **No copyrighted game data is distributed.** You need your own copy of the game. Do not share the files made
-  from it: `rom/`, `extract/`, `game/` and the generated code in `build/`.
-- **AI assistance:** this project was developed with Claude (Anthropic) through Claude Code. Claude did the
-  reverse-engineering analysis and wrote the recompiler, the runtime and the documentation, under the direction
-  of the repository owner.
