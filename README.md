@@ -1,5 +1,7 @@
 # Egg of Time
 
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/powerpudu)
+
 **A native PC port of *Chrono Trigger* for Nintendo DS**, for Windows, Linux and macOS.
 
 Egg of Time is not an emulator. It is a **static recompilation**: every function of the game's code is translated
