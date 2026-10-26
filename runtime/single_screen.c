@@ -18,6 +18,9 @@
  *     description on the top screen. The main screen shows Battle Mode and Movies with the description under
  *     the highlighted one; Game Mode is left out (single screen mode always plays Classic) and SELECT reads
  *     "System settings" instead of the game's "Defaults": it opens the runtime's menu (system_menu.c).
+ *   - Name entry (ov012): the character on a patch of grass on the top screen, the keyboard, name and
+ *     portrait filling the bottom screen. The main screen shows the top screen while the character appears
+ *     and after the name is accepted (the character's animation), the bottom screen while the name is entered.
  *   - Everything else, the intro movie included, shows the top screen as it is; while the field is paused,
  *     with "Press SELECT to open System Settings" at the bottom (the menu opens from there too). */
 #include <SDL3/SDL.h>
@@ -28,7 +31,7 @@
 #include "ui_font.h"
 #include "video.h"
 
-enum { SCENE_OTHER, SCENE_LOGOS, SCENE_TITLE, SCENE_SETTINGS, SCENE_FIELD };
+enum { SCENE_OTHER, SCENE_LOGOS, SCENE_TITLE, SCENE_SETTINGS, SCENE_NAMING, SCENE_FIELD };
 typedef struct Scene { int kind; uint32_t obj; } Scene;
 static uint32_t title_held; /* keys held since before the title started: not a press */
 #define TITLE_STATE 0x4a  /* title scene: current state (halfword); +0x48 holds the requested one */
@@ -38,6 +41,8 @@ static uint32_t title_held; /* keys held since before the title started: not a p
 #define OBJ 0x1000u       /* DISPCNT: sprites on */
 #define SETTINGS_ROW 0x3f00       /* Game Settings: cursor row (byte); +0x3f01 the row shown, +0x3f02 the column */
 #define SETTINGS_ROW_SHOWN 0x3f01
+#define NAMING_STATE 0x4e48 /* name entry: state (word): 0 the character and keyboard fading in, 1 entering, 2 accepted */
+#define NAMING_ENTERING 1
 
 #define CURRENT_SCENE 0x0207088cu /* the running scene's secondary base (scene + 8), set by Scene::run */
 
@@ -52,6 +57,7 @@ static Scene current(void) {
         else if (vt == 0x0212aed4u) sc.kind = SCENE_TITLE;
         else if (vt == 0x0212b300u) sc.kind = SCENE_SETTINGS;
     }
+    if (vt == 0x02156880u && rt_overlay_resident(12)) sc.kind = SCENE_NAMING;
     if (vt == 0x02115558u && rt_overlay_resident(0)) sc.kind = SCENE_FIELD; /* ov000: towns, maps, battles */
     return sc;
 }
@@ -268,6 +274,9 @@ int ss_compose(uint32_t *main, const uint32_t *top, const uint32_t *bottom, cons
         break;
     case SCENE_SETTINGS:
         compose_settings(sc, main, top, bottom);
+        break;
+    case SCENE_NAMING:
+        memcpy(main, rt_r32(sc.obj + NAMING_STATE) == NAMING_ENTERING ? bottom : top, SCREEN_W * SCREEN_H * 4);
         break;
     default:
         memcpy(main, top, SCREEN_W * SCREEN_H * 4);

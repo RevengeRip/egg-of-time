@@ -203,6 +203,11 @@ original bytes, and caches the result per region until the region is written.
     the game gets a pulsed Down, and Up/Down wrap between rows 1 and 2 (the direction is decided when a press
     starts). SELECT, the game's "Defaults", is withheld from the game and its button reads "System settings"
     (painted over with the button's own texture, built-in font): it opens the System Settings menu.
+  - Name entry (ov012, vtable 0x02156880, built only at 0x021224cc): the character on a patch of grass on the
+    top screen; the name, portrait, keyboard and buttons fill the bottom screen. The word at scene + 0x4e48 is
+    the scene's state: 0 while the character, the floor and the keyboard fade in, 1 entering the name, 2 after
+    START (the keyboard and floor fade out while the character animates). The main screen shows the bottom
+    screen in state 1, the top screen otherwise.
   - Classic battles by default, below.
 - **Classic mode default** (single screen mode): the game's own "Game Mode: DS / Classic" option (New Game
   settings scene, ov007) defaults to Classic. `func_ov007_0212a3f0`, which resets the options when the scene opens and on
