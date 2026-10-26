@@ -1,0 +1,65 @@
+# Windows release: the runtime executable and the kit that builds the game from the player's ROM on its first start
+# (runtime/game_build.c, scripts/package.py). Nothing here touches a ROM or ROM-derived data: the runtime is built
+# with EGG_RUNTIME_ONLY, and the package script refuses generated code, extracted files, ROMs and saves.
+# A pushed tag v* publishes a GitHub release; a manual run uploads the zip as a workflow artifact.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  LLVM: llvm-mingw-20261020-ucrt-x86_64
+  SDL: SDL3-3.4.18
+  FFMPEG: ffmpeg-n8.1-latest-win64-lgpl-shared-8.1
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          mkdir -p deps && cd deps
+          curl -sSLfo llvm.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20261020/$LLVM.zip
+          curl -sSLfo sdl.zip https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-devel-3.4.18-mingw.zip
+          curl -sSLfo ffmpeg.zip https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/$FFMPEG.zip
+          curl -sSLfo python-embed.zip https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip
+          curl -sSLfo dsd.exe https://github.com/AetiasHax/ds-decomp/releases/download/v0.12.1/dsd-windows-x86_64.exe
+          curl -sSLfo dsd-LICENSE.txt https://raw.githubusercontent.com/AetiasHax/ds-decomp/v0.12.1/LICENSE
+          for z in llvm sdl ffmpeg; do python -m zipfile -e $z.zip .; done
+          pip install ninja
+
+      - name: Build the runtime
+        run: |
+          export PATH="$PWD/deps/$LLVM/bin:$PATH"
+          cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DEGG_RUNTIME_ONLY=ON \
+            "-DCMAKE_PREFIX_PATH=$PWD/deps/$SDL/x86_64-w64-mingw32;$PWD/deps/$FFMPEG"
+          cmake --build build
+
+      - name: Package
+        run: |
+          python -I scripts/package.py --build build --llvm deps/$LLVM --python-embed deps/python-embed.zip \
+            --dsd deps/dsd.exe --dsd-license deps/dsd-LICENSE.txt --sdl deps/$SDL --ffmpeg deps/$FFMPEG \
+            --out "dist/Egg of Time" --zip "dist/EggOfTime-${GITHUB_REF_NAME}-windows-x64.zip"
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "Egg of Time $GITHUB_REF_NAME" --notes-file res/release/README.txt
+
+      - name: Upload the package
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: EggOfTime-windows-x64
+          path: dist/*.zip

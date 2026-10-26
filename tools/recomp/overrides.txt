@@ -1,0 +1,27 @@
+# Game functions replaced by runtime C implementations (Chrono Trigger DS, YQUE).
+# Format: <module> <address> <C function> [wrap]. Calls and the dispatch table use the runtime function
+# instead. The recompiler emits no code for these, except with `wrap`: then the game function is still
+# recompiled under its usual name (f_<module>_<address>) and the runtime function calls it.
+
+# NitroSDK thread context switching: register-file save/restore that has no C equivalent.
+# Replaced by coroutine switches (runtime/thread.c).
+main 020078d8 rt_os_save_context
+main 02007924 rt_os_load_context
+itcm 01ff8058 rt_os_irq_thread_switch
+
+# C++ operator new failure (throws std::bad_alloc; the game then halts). Reported as a fatal error with
+# the requested size, which operator new keeps in r6.
+main 02023cb0 rt_bad_alloc
+
+# New Game settings defaults: in single screen mode, Game Mode starts as Classic instead of DS
+# (runtime/patches.c).
+ov007 0212a3f0 rt_ct_settings_defaults wrap
+
+# Field object visibility test (characters are drawn while their tile is within 4 tiles of the 4:3 view): in
+# widescreen, widened by the margins for the call (runtime/widescreen.c).
+ov004 02130dbc rt_ws_object_visible wrap
+
+# Cutscene players (r0 = the movie's path): an MP4 in mods/cutscenes plays instead while Mods is on
+# (runtime/movie.c). 0x02198da0 is the variant that also draws on the bottom screen.
+ov017 02198d20 rt_movie_play wrap
+ov017 02198da0 rt_movie_play_scene wrap

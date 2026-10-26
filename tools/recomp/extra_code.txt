@@ -1,0 +1,14 @@
+# Code the game copies to a fixed address at run time, which dsd analyses at its ROM location only.
+# Format: <name> <source module> <source address> <size> <load address> [entry=<addr>] [table=<addr>:<count>]
+#   entry=  a known function start (load address)
+#   table=  a table of <count> 32-bit offsets, relative to the table address, to function starts
+# Function boundaries are otherwise discovered from BL targets and `push {..., lr}` prologues.
+
+# Mobiclip video decoder: copied into the ITCM arena (starts at 0x01ff8680) by the Mobiclip SDK (ov008).
+# 0x01ff872c is the decoder entry stub; the table at 0x01ff8738 lists the block-copy routines.
+mobiclip_itcm ov008 02128f24 664c 01ff8680 entry=01ff872c table=01ff8738:32
+
+# Mobiclip SDK (ov008) at its own address. dsd misses parts of this hand-written code (e.g. the gap after
+# 0x0212309c), which is reached through computed jumps. The dispatcher uses dsd's functions first and
+# falls back to this module for addresses they do not cover.
+ov008_whole ov008 021216e0 e900 021216e0

@@ -1,0 +1,18 @@
+# Game data and anything derived from it: never commit (see README).
+/rom/
+/extract/
+/asm/
+/ghidra/
+/build/
+/objdiff.json
+*.nds
+*.sav
+*.state
+
+# Third-party tools downloaded locally
+/tools/dsd/
+
+# Local / generated
+__pycache__/
+*.pyc
+eggoftime.ini
