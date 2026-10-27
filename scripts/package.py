@@ -45,6 +45,9 @@ def copy_tree(src, dst, pattern="**/*"):
 
 def llvm_subset(llvm, kit_include, implib):
     """Files of llvm-mingw (relative paths) needed to compile and link the game library."""
+    # clang and lld report absolute paths: a relative llvm would match none of them and leave out every header,
+    # crt object and import library.
+    llvm = os.path.abspath(llvm)
     files = set()
     for pattern in ("clang.exe", "clang-[0-9]*.exe", "ld.lld.exe", "lld.exe", "libLLVM-*.dll", "libclang-cpp.dll",
                     "libc++.dll", "libunwind.dll", "libwinpthread-1.dll", "*.cfg"):
@@ -68,6 +71,9 @@ def llvm_subset(llvm, kit_include, implib):
             p = os.path.normpath(m.group(1))
             if p.lower().startswith(os.path.normpath(llvm).lower()):
                 files.add(os.path.relpath(p, llvm))
+    for need in ("setjmp.h", "dllcrt2.o"):
+        if not any(os.path.basename(f) == need for f in files):
+            sys.exit(f"llvm-mingw subset lacks {need}: clang or lld did not report it under {llvm}")
     files.add("LICENSE.TXT")
     return sorted(files)
 
