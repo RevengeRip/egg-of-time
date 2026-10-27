@@ -51,7 +51,8 @@
  *     and under the monster the list as lines of text, the selected one framed, then the count.
  *   - Widescreen (the top screen with its margins): the field, and the warp through a time gate (ov010): an
  *     affine BG with wraparound, whose margins the renderer draws as they are, under a star of sprites that
- *     covers the DS screen exactly, stretched across the margins (video.c).
+ *     covers the DS screen exactly, stretched across the margins (video.c); and the world map (ov002), whose
+ *     margins are filled from its own map data (widescreen.c).
  *   - Everything else, the intro movie included, shows the top screen as it is; while the field is paused,
  *     with "Press SELECT to open System Settings" at the bottom (the menu opens from there too). */
 #include <SDL3/SDL.h>
@@ -62,7 +63,7 @@
 #include "ui_font.h"
 #include "video.h"
 
-enum { SCENE_OTHER, SCENE_LOGOS, SCENE_TITLE, SCENE_SETTINGS, SCENE_NAMING, SCENE_FIELD, SCENE_WARP, SCENE_MENU, SCENE_EQUIP, SCENE_ITEMS, SCENE_TECHS, SCENE_BESTIARY, SCENE_OPTIONS, SCENE_PARTY, SCENE_SAVE };
+enum { SCENE_OTHER, SCENE_LOGOS, SCENE_TITLE, SCENE_SETTINGS, SCENE_NAMING, SCENE_FIELD, SCENE_WARP, SCENE_OVERWORLD, SCENE_MENU, SCENE_EQUIP, SCENE_ITEMS, SCENE_TECHS, SCENE_BESTIARY, SCENE_OPTIONS, SCENE_PARTY, SCENE_SAVE };
 typedef struct Scene { int kind; uint32_t obj; } Scene;
 static uint32_t title_held; /* keys held since before the title started: not a press */
 #define TITLE_STATE 0x4a  /* title scene: current state (halfword); +0x48 holds the requested one */
@@ -120,6 +121,7 @@ static Scene current(void) {
     if (vt == 0x0219fc8cu && rt_overlay_resident(18)) sc.kind = SCENE_BESTIARY; /* ov018: the menu's Bestiary */
     if (vt == 0x02115558u && rt_overlay_resident(0)) sc.kind = SCENE_FIELD; /* ov000: towns, maps, battles */
     if (vt == 0x0212535cu && rt_overlay_resident(10)) sc.kind = SCENE_WARP;  /* ov010: travel through a time gate */
+    if (vt == 0x02120a68u && rt_overlay_resident(2)) sc.kind = SCENE_OVERWORLD; /* ov002: the world map */
     return sc;
 }
 
@@ -810,6 +812,7 @@ static int field_paused(void) {
 
 int ss_in_field(void) { return current().kind == SCENE_FIELD; }
 int ss_in_warp(void) { return current().kind == SCENE_WARP; }
+int ss_in_overworld(void) { return current().kind == SCENE_OVERWORLD; }
 
 static SDL_AtomicInt menu_place;
 
@@ -825,7 +828,7 @@ int ss_compose(uint32_t *main, const uint32_t *top, const uint32_t *bottom, cons
                                   : paused     ? SS_MENU_PAUSE
                                   : title_menu ? SS_MENU_TITLE
                                                : SS_MENU_NONE);
-    if (sc.kind == SCENE_FIELD || sc.kind == SCENE_WARP) { /* widescreen: the top screen with its margins */
+    if (sc.kind == SCENE_FIELD || sc.kind == SCENE_WARP || sc.kind == SCENE_OVERWORLD) { /* widescreen: the top screen with its margins */
         memcpy(main, wide, (size_t)wide_w * SCREEN_H * 4);
         if (paused) {
             const char *hint = "Press SELECT to open System Settings";

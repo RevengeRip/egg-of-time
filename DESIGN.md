@@ -121,6 +121,18 @@ original bytes, and caches the result per region until the region is written.
     the battle until the field has put the map back (it matches the copy again; or the room changes, or 600 frames
     pass). Save states keep the copy in an optional last block (`ws_room_copy`, `rt_state_optional`): states
     saved before it load without it, and a battle loaded from one of those shows the reused data in the margins.
+  - World map (ov002, scene vtable 0x02120a68): its own streaming (ov002 0x0211ac64, writers such as 0x0211af10,
+    found with a write watch on a BG3 map cell) keeps 17 of the 32 metatile columns of each 512x256 BG1-3 ring
+    current. The world object `*(0x0207088c)` + 0xddc0 has per layer the view's world position (+0x22a4 / +0x22ac),
+    the 96 x 64 metatile map (+0x22b4) and the 2x2 metatile sheet (+0x2a4 + 0x800 * layer); the runtime fills the
+    margins' columns from them (checked against every cell the game drew). Its sprites go through the game's
+    SNES-style code (ov005 0x0212bcdc), which keeps a piece while X + 15 < 0x10f, writes a SNES OAM table with
+    9-bit X (`*(0x0207b520)` + 0x700, high bits + 0x900), and ov002 0x0211cb44 / 0x0211cbb4 turn it into DS
+    sprites reading X 256-511 as negative. The SNES 16-bit compare (main 0x020305ac) is replaced by
+    `rt_ws_snes_cmp`, which widens that one test (return address 0x0212c0e4) by the margins, and the wrapper
+    `rt_ws_world_sprite` (ov002 0x0211cc20) puts an X below -128 back at 256 and up: the right margin. Objects
+    also keep an on-screen flag (ov002 0x0210cd24: X - camera + 16, negative values wrapped at 0x600, below
+    0x120; the birds go away once it clears), widened the same way at its compare (return address 0x0210ce50).
   - Text boxes: for the box lines the game switches BG0/BG1 mid-frame to one-screen (256-wide) maps (BG0CNT
     0x0818, BG1CNT 0x0914, VOFS 384), which would repeat in the margins; the renderer draws a 256-wide text BG
     in the screen columns only. In the margins of those lines it keeps the layer as the frame started (BGxCNT,

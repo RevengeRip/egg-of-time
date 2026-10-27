@@ -21,6 +21,13 @@ ov007 0212a3f0 rt_ct_settings_defaults wrap
 # widescreen, widened by the margins for the call (runtime/widescreen.c).
 ov004 02130dbc rt_ws_object_visible wrap
 
+# World map sprites (drawn while their screen X is within -15..255 of the 4:3 view) and objects (on screen while
+# within -16..271; the birds go away outside): in widescreen, the SNES-style compare those tests use is widened by
+# the margins at those calls, and the converted X of the right margin's pieces
+# put back from the negative 9-bit encoding (runtime/widescreen.c).
+main 020305ac rt_ws_snes_cmp
+ov002 0211cc20 rt_ws_world_sprite wrap
+
 # Cutscene players (r0 = the movie's path): an MP4 in mods/cutscenes plays instead while Mods is on
 # (runtime/movie.c). 0x02198da0 is the variant that also draws on the bottom screen.
 ov017 02198d20 rt_movie_play wrap

@@ -21,7 +21,23 @@
  * Battles (ov003 in the slot of the field's ov004) keep the room on screen but reuse its map for their own data,
  * and the field puts it back a moment after the battle ends, so the margins are filled from a copy of the room
  * map taken while the field ran: during the battle and after it, until the map matches the copy again (or the
- * room changes, or 10 s pass). Save states keep the copy. */
+ * room changes, or 10 s pass). Save states keep the copy.
+ *
+ * The world map (ov002) streams its own way (ov002 0x0211ac64 and the per-direction writers it calls, e.g.
+ * 0x0211af10): layers 1-3 go to BG1-3, 512x256 rings of 32 x 16 metatiles (16 px), and the game keeps the 17
+ * metatile columns from the view's left one current. Its world object, *(0x0207088c) + 0xddc0, holds per layer L:
+ *   - +0x22a4 + 2L, +0x22ac + 2L: the view's top-left in the world, in pixels (x wraps at 0x600, y at 0x400; the BG
+ *     scroll is that modulo the ring); layer 0 (the sea, BG0) keeps its own scroll there, times 16;
+ *   - +0x22b4 + 4L: the world map, 96 x 64 metatile ids (bytes, rows 0x60 apart);
+ *   - +0x2a4 + 0x800L: the metatile sheet, 32 x 32 map entries: id i is the 2x2 at column (i & 15) * 2, row
+ *     (i >> 4) * 2.
+ * So the margins' columns are written from the same data each frame, for each layer whose BG scroll agrees.
+ * Its sprites (the boat, the Epoch...) come from the game's SNES-style sprite code (ov005 0x0212bcdc): a piece is
+ * kept while its screen X + 15 is below 0x10f (X -15..255), as a 9-bit X in a SNES OAM table that ov002 0x0211cb44
+ * turns into DS sprites (0x0211cbb4: X 256-511 read as -256..-1). Objects also keep an on-screen flag (ov002
+ * 0x0210cd24: X - camera + 16, wrapped at 0x600, below 0x120; the birds go away once it clears). In widescreen both
+ * tests are widened by the margins (rt_ws_snes_cmp) and a converted X below -128 (never kept by the game) is the
+ * right margin's (rt_ws_world_sprite). */
 #include "dispatch.h"
 #include "rt.h"
 #include "single_screen.h"
@@ -168,7 +184,70 @@ void rt_ws_object_visible(CPU *cpu) {
     rt_w16(scroll + 6, right);
 }
 
+#define WORLD 0xddc0u
+
+static int world_margin; /* this frame's margin columns in the world map, 0 elsewhere */
+
+/* The SNES-style code's 16-bit compare (main 0x020305ac, r0 = the accumulator's address, r1 = the operand): sets
+ * the emulated flags (0x0207b43c: carry bit 0, zero bit 1, negative bit 7) from A - M. Its calls in the world map's
+ * X tests (by return address: the sprite pieces' X + 15 against 0x10f, ov005; the objects' X - camera + 16 against
+ * 0x120, ov002, negative values wrapped at 0x600) compare A + margin against M + 2 * margin instead, a value just
+ * below zero (the left margin) taken as negative. */
+#define SNES_FLAGS 0x0207b43cu
+#define SPRITE_X_TEST 0x0212c0e4u
+#define OBJECT_X_TEST 0x0210ce50u
+
+void rt_ws_snes_cmp(CPU *cpu) {
+    uint32_t a = rt_r16(R[0]), m = R[1] & 0xFFFF, wrap = 0;
+    if (world_margin && R[14] == SPRITE_X_TEST && rt_overlay_resident(5)) wrap = 0x10000;
+    if (world_margin && R[14] == OBJECT_X_TEST) wrap = 0x600;
+    if (wrap) {
+        uint32_t w = (uint32_t)world_margin;
+        a = (a >= wrap - w ? a - wrap : a) + w; /* the left margin's values (just below zero) wrapped back */
+        a &= 0xFFFF;
+        m = (m + 2 * w) & 0xFFFF;
+    }
+    uint32_t d = a + (~m & 0xFFFF) + 1;
+    rt_w8(SNES_FLAGS, (rt_r8(SNES_FLAGS) & 0x7c) | ((d >> 16) & 1) | ((d & 0xFFFF) == 0) << 1 | ((d & 0x8000) >> 8));
+}
+
+/* World map sprite piece to DS (ov002 0x0211cc20, r2 = X, signed 16-bit). */
+static void game_world_sprite(CPU *cpu) { rt_call_wrapped(cpu, "ov002", 0x0211cc20u); } /* the original */
+void rt_ws_world_sprite(CPU *cpu) {
+    if (world_margin && !cpu->resume_pc && (int16_t)R[2] < -128) R[2] = (uint32_t)((int16_t)R[2] + 512) & 0xFFFF;
+    game_world_sprite(cpu);
+}
+
+static void fill_world_margins(int margin) {
+    uint32_t base = rt_r32(CURRENT_SCENE);
+    if (!ram_ptr(base)) return;
+    uint32_t w = base + WORLD;
+    for (int L = 1; L < 4; L++) {
+        int x = rt_r16(w + 0x22a4 + 2 * L), y = rt_r16(w + 0x22ac + 2 * L);
+        uint32_t map = rt_r32(w + 0x22b4 + 4 * L), sheet = w + 0x2a4 + 0x800u * (uint32_t)L;
+        if (!ram_ptr(map) || x >= 0x600 || y >= 0x400 || (io_get16(0x08 + 2 * L) >> 14) != 1 ||
+            (io_get16(0x10 + 4 * L) & 511) != (x & 511) || (io_get16(0x12 + 4 * L) & 255) != (y & 255))
+            continue;
+        int own = x >> 4, left = (x - margin) >> 4, right = (x + SCREEN_W - 1 + margin) >> 4;
+        for (int c = left; c <= right; c++) {
+            if (c >= own && c <= own + 16) continue; /* the game's own columns */
+            int wc = (c % 0x60 + 0x60) % 0x60;
+            for (int r = y >> 4; r <= (y + SCREEN_H - 1) >> 4; r++) {
+                uint32_t id = rt_r8(map + (uint32_t)(r & 63) * 0x60 + (uint32_t)wc);
+                uint32_t e = sheet + ((id >> 4) * 2) * 64 + (id & 15) * 4;
+                int slot = (c * 2) & 63, row = (r * 2) & 31;
+                put(L, slot, row, (uint16_t)rt_r16(e));
+                put(L, slot + 1, row, (uint16_t)rt_r16(e + 2));
+                put(L, slot, row + 1, (uint16_t)rt_r16(e + 64));
+                put(L, slot + 1, row + 1, (uint16_t)rt_r16(e + 66));
+            }
+        }
+    }
+}
+
 void ws_fill_margins(int margin) {
+    world_margin = margin > 0 && ss_in_overworld() ? margin : 0;
+    if (world_margin) fill_world_margins(margin);
     int field = margin > 0 && ss_in_field();
     field_margin = field ? margin : 0;
     set_sprite_view(field_margin);
