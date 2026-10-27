@@ -103,6 +103,7 @@ typedef struct Engine {
     int ref_reload[2];
     int margin;     /* columns drawn beyond each side of the screen (widescreen), fixed for a frame */
     int obj_origin; /* sprite X counts from this many columns left of the screen (widescreen.c) */
+    int obj_stretch; /* the sprites' screen columns are stretched across the margins (the warp, single_screen.c) */
     int party;      /* camera smoothing: this frame has sprites that move with the camera (party layer) */
     int sliding;    /* camera smoothing: the display slides this frame (the camera moved into it) */
     uint8_t follows[128]; /* by OAM slot: the sprite moves with the camera */
@@ -391,6 +392,22 @@ static void render_objs(const Engine *e, int y, uint32_t dispcnt, ObjLine *ol, i
     }
 }
 
+/* Widescreen in the warp: its star is 16 sprites covering the DS screen exactly, so the screen's sprite columns
+ * are stretched across the margins too (nearest column). */
+static void stretch_objs(const Engine *e, ObjLine *ol) {
+    static ObjLine src;
+    int m = e->margin, width = SCREEN_W + 2 * m;
+    src = *ol;
+    for (int x = 0; x < width; x++) {
+        int s = m + x * SCREEN_W / width;
+        ol->color[x] = src.color[s];
+        ol->prio[x] = src.prio[s];
+        ol->alpha[x] = src.alpha[s];
+        ol->win[x] = src.win[s];
+        ol->party[x] = src.party[s];
+    }
+}
+
 /* ---- camera smoothing: the party layer ----
  * Between game frames the display slides the field picture with the camera (display.c). Sprites the camera
  * follows (the party) hardly move on screen, so sliding them would shake them: they are drawn on a separate layer
@@ -475,6 +492,7 @@ static void render_engine_line(Engine *e, int y, uint32_t *out) {
         if (e->id == !a_top) {
             ws_fill_margins(e->margin);
             e->obj_origin = ws_sprite_origin(); /* sprites placed from the left margin (widened view) */
+            e->obj_stretch = e->margin && ss_in_warp();
             int cx = 0, cy = 0, known = ws_camera(&cx, &cy); /* camera motion into this frame (camera smoothing) */
             frame_dx = frame_dy = 0;
             if (known && camera_known) {
@@ -544,6 +562,7 @@ static void render_engine_line(Engine *e, int y, uint32_t *out) {
         }
         int objs = (dispcnt & 0x1000) != 0;
         if (objs || (dispcnt & 0x8000)) render_objs(e, y, dispcnt, &ol, e->party);
+        if (e->obj_stretch) stretch_objs(e, &ol);
         if (e->party) {
             memset(&ol_all, 0, sizeof ol_all);
             if (objs || (dispcnt & 0x8000)) render_objs(e, y, dispcnt, &ol_all, 0);
